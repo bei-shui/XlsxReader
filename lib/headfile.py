@@ -445,8 +445,8 @@ class HeadFile:
 
     def result(self):
         # 按一定格式输出result.c文件
-        h_file_name = self.file_name[:-2] + '_reg_ctr.h'  # 生成的h文件名
-        c_file_name = self.file_name[:-2] + '_reg_ctr.c'  # 生成的c文件名
+        h_file_name = '../result/'+self.file_name[:-2] + '_reg_ctr.h'  # 生成的h文件名
+        c_file_name = '../result/'+self.file_name[:-2] + '_reg_ctr.c'  # 生成的c文件名
         h_file_handle = open(h_file_name, 'w')
         c_file_handle = open(c_file_name, 'w')
         self.__write_head_file(h_file_handle)

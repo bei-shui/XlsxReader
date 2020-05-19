@@ -36,8 +36,8 @@ def main():
                 '行 数据是否有误（Logical Register和Bit Position不匹配）\n')
         except InvalidNumException as e:
             print(sheet.title, '非法，跳过：请检查', e.row, '行', e.column, '列 数据是否有误\n')
-        except BaseException:
-            print(sheet.title, '非法，跳过：未知错误\n')
+        #except BaseException:
+            #print(sheet.title, '非法，跳过：未知错误\n')
         else:
             try:
                 my_sheet.result()

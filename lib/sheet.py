@@ -24,11 +24,12 @@ class MySheet:
     reg_name_list = []
     reg_list = []
     bit_list = []
+    read_write_list = []  # 1表示读写，0表示只读
     high_list = []
     low_list = []
     _col_no = {}
 
-    def get_sheet_name(self, sheet):
+    def __get_sheet_name(self, sheet):
         # 把表名的空格替换成下划线
         tmp = sheet.title.strip()
         try:
@@ -40,7 +41,8 @@ class MySheet:
         except BaseException:
             pass
 
-    def _get_row_no(self, sheet, cf):
+    def __get_row_no(self, sheet, cf):
+        # 遍历第一行
         for cell in sheet['1']:
             if cell.value == cf.phy:
                 self._col_no['phy'] = cell.column
@@ -50,6 +52,8 @@ class MySheet:
                 self._col_no['reg'] = cell.column
             elif cell.value == cf.bit:
                 self._col_no['bit'] = cell.column
+            elif cell.value == cf.read_write:
+                self._col_no['read_write'] = cell.column
 
     def __get_phy_end(self, sheet):
         tmp = sheet.cell(row=sheet.max_row, column=self._col_no['phy']).value
@@ -63,7 +67,7 @@ class MySheet:
             raise
         return res
 
-    def _get_reg(self, sheet, col):
+    def __get_reg(self, sheet, col):
         # 获取regList
         for i in range(2, sheet.max_row + 1):
             tmp = sheet.cell(row=i, column=col).value
@@ -81,7 +85,7 @@ class MySheet:
             else:
                 self.reg_list.append(None)
 
-    def _get_reg_name(self, sheet, cf):
+    def __get_reg_name(self, sheet, cf):
         # 得到reg_name列
         if cf.reg_name:
             self.reg_name_list = get_col(sheet, self._col_no['reg_name'])
@@ -89,14 +93,23 @@ class MySheet:
             for i in range(2, sheet.max_row + 1):
                 if sheet.cell(row=i, column=self._col_no['phy']).value:
                     self.reg_name_list.append(
-                        self.sheet_name +
-                        sheet.cell(
-                            row=i,
-                            column=self._col_no['phy']).value.strip())
+                        self.sheet_name + sheet.cell(row=i, column=self._col_no['phy']).value.strip())
                 else:
                     self.reg_name_list.append(None)
 
-    def _del_blank_row(self):
+    def __get_read_write(self, sheet, cf):
+
+        for i in range(2, sheet.max_row + 1):
+
+            if sheet.cell(row=i,column=self._col_no['read_write']).value:
+                if re.search(r'w', sheet.cell(row=i, column=self._col_no['read_write']).value, re.I):  # 如果匹配到w则该寄存器为读写
+                    self.read_write_list.append(1)
+                else:
+                    self.read_write_list.append(0)
+            else:
+                self.read_write_list.append(1)
+
+    def __del_blank_row(self):
         # 遍历bitList，高位存于highList，低位存于lowList，无值则判断reg是否无值，成立则删除该行，否则不匹配报错
         patten1 = re.compile(r'\d+:\d+')
         patten2 = re.compile(r'\d+')
@@ -115,12 +128,8 @@ class MySheet:
                     tag = re.search(patten3, tmp.group()).span()[0]  # 得到：的索引值
                     self.high_list.append(int(tmp.group()[0:tag]))
                     self.low_list.append(int(tmp.group()[tag + 1:]))
-                    if int(
-                            tmp.group()[
-                            0:tag]) > 31 or int(
-                        tmp.group()[
-                            tag +
-                            1:]) < 0:  # 判断bit列数据是否合法
+                    # 判断bit列数据是否合法
+                    if int(tmp.group()[0:tag]) > 31 or int(tmp.group()[tag + 1:]) < 0:
                         raise InvalidNumException(
                             int(self._col_no['bit']), row)
 
@@ -139,6 +148,7 @@ class MySheet:
                         del self.reg_name_list[i]
                         del self.reg_list[i]
                         del self.bit_list[i]
+                        del self.read_write_list[i]
                         i = i - 1
                         length = length - 1
 
@@ -149,13 +159,14 @@ class MySheet:
                 del self.reg_name_list[i]
                 del self.reg_list[i]
                 del self.bit_list[i]
+                del self.read_write_list[i]
                 i = i - 1
                 length = length - 1
                 pass
             i = i + 1
             row = row + 1
 
-    def _add_reserved(self, order):
+    def __add_reserved(self, order):
         # 遍历low
         length = len(self.low_list)
         i = 0
@@ -170,6 +181,7 @@ class MySheet:
                             self.high_list.insert(0, 31)
                             self.low_list.insert(0, self.high_list[1] + 1)
                             self.reg_list.insert(0, 'reserved')
+                            self.read_write_list.insert(0, 1)
                             self.phy_list.insert(1, None)
                             self.reg_name_list.insert(1, None)
                             length = length + 1
@@ -177,7 +189,7 @@ class MySheet:
                     elif self.low_list[i - 1]:  # 不是第一个寄存器，判断上一个寄存器最后的低位是否为0
                         self.high_list.insert(i, self.low_list[i - 1] - 1)
                         self.low_list.insert(i, 0)
-
+                        self.read_write_list.insert(i, 1)
                         self.reg_list.insert(i, 'reserved')
                         self.phy_list.insert(i, None)
                         self.reg_name_list.insert(i, None)
@@ -191,6 +203,7 @@ class MySheet:
                     self.reg_list.insert(i, 'reserved')
                     self.phy_list.insert(i, None)
                     self.reg_name_list.insert(i, None)
+                    self.read_write_list.insert(i, 1)
                     length = length + 1
                     i = i + 1
 
@@ -201,6 +214,7 @@ class MySheet:
                 self.reg_list.append('reserved')
                 self.phy_list.append(None)
                 self.reg_name_list.append(None)
+                self.read_write_list.append(1)
 
         # 升序
         else:
@@ -211,6 +225,7 @@ class MySheet:
                             self.low_list.insert(0, 0)
                             self.high_list.insert(0, self.low_list[1] - 1)
                             self.reg_list.insert(0, 'reserved')
+                            self.read_write_list.insert(0, 1)
                             self.phy_list.insert(1, None)
                             self.reg_name_list.insert(1, None)
                             length = length + 1
@@ -222,6 +237,7 @@ class MySheet:
                         self.reg_list.insert(i, 'reserved')
                         self.phy_list.insert(i, None)
                         self.reg_name_list.insert(i, None)
+                        self.read_write_list.insert(i, 1)
                         length = length + 1
                         i = i + 1
                 elif self.low_list[i] - self.high_list[i - 1] > 1:  # 不是一个寄存器的开始
@@ -231,6 +247,7 @@ class MySheet:
                     self.reg_list.insert(i, 'reserved')
                     self.phy_list.insert(i, None)
                     self.reg_name_list.insert(i, None)
+                    self.read_write_list.insert(i, 1)
                     length = length + 1
                     i = i + 1
 
@@ -241,26 +258,33 @@ class MySheet:
                 self.reg_list.append('reserved')
                 self.phy_list.append(None)
                 self.reg_name_list.append(None)
+                self.read_write_list.append(1)
 
     def __init__(self, sheet, cf):
         # 得到表名
-        self.get_sheet_name(sheet)
+        self.__get_sheet_name(sheet)
         # 得到需要的信息的列号
-        self._get_row_no(sheet, cf)
-        assert self._col_no['phy'] and self._col_no['reg'] and self._col_no['bit']
+        self.__get_row_no(sheet, cf)
+        # 断言分析表必须的列存在
+        assert self._col_no['phy'] and self._col_no['reg'] and self._col_no['bit'] and self._col_no['read_write']
+
         self.phy_list = get_col(sheet, self._col_no['phy'])
+
+        # 找到末尾的phy值
         try:
             self.phy_end = self.__get_phy_end(sheet)
         except BaseException:
             raise
-        self._get_reg_name(sheet, cf)
-        self._get_reg(sheet, self._col_no['reg'])
+
+        self.__get_reg_name(sheet, cf)
+        self.__get_reg(sheet, self._col_no['reg'])
         self.bit_list = get_col(sheet, self._col_no['bit'])
+        self.__get_read_write(sheet, cf)
         try:
-            self._del_blank_row()
+            self.__del_blank_row()
         except BaseException:
             raise
-        self._add_reserved(cf.order)
+        self.__add_reserved(cf.order)
 
     def __del__(self):
         self.sheet_name = ''
@@ -271,6 +295,7 @@ class MySheet:
         self.high_list.clear()
         self.low_list.clear()
         self._col_no.clear()
+        self.read_write_list.clear()
 
     def result(self):
         filename = (self.sheet_name.lower() + '.h')
@@ -324,9 +349,15 @@ class MySheet:
                       '{:2}'.format(str(self.high_list[i] -
                                         self.low_list[i] +
                                         1)) +
-                      '  ; /* [' +
-                      '{:2}'.format(str(self.high_list[i])) +
-                      ']      */', file=f)
+                      '  ; ', end='', file=f)
+                if self.read_write_list[i] == 1:  # 根据是否可写改变注释写法
+                    print('/*read and write  [' +
+                          '{:2}'.format(str(self.high_list[i])) +
+                          ']      */', file=f)
+                else:
+                    print('/*read only       [' +
+                          '{:2}'.format(str(self.high_list[i])) +
+                          ']      */', file=f)
             else:
                 print('        unsigned int    ' +
                       '{:30}'.format(self.reg_list[i].lower()) +
@@ -334,15 +365,22 @@ class MySheet:
                       '{:2}'.format(str(self.high_list[i] -
                                         self.low_list[i] +
                                         1)) +
-                      '  ; /* [' +
-                      '{:2}'.format(str(self.high_list[i])) +
-                      '..' +
-                      '{:2}'.format(str(self.low_list[i])) +
-                      ']  */', file=f)
+                      '  ; ', end='', file=f)
+                if self.read_write_list[i] == 1:  # 根据是否可写改变注释写法
+                    print('/*read and write  [' +
+                          '{:2}'.format(str(self.high_list[i])) +
+                          '..' +
+                          '{:2}'.format(str(self.low_list[i])) +
+                          ']  */', file=f)
+                else:
+                    print('/*read only       [' +
+                          '{:2}'.format(str(self.high_list[i])) +
+                          '..' +
+                          '{:2}'.format(str(self.low_list[i])) +
+                          ']  */', file=f)
             if i == length - 1 or self.phy_list[i + 1]:  # 一个寄存器结尾
                 print(
-                    '    } bits;    /* Define an unsigned member */' +
-                    '\n' +
+                    '    } bits;\n    /* Define an unsigned member */' +
                     '\n' +
                     '    unsigned int    u32;' +
                     '\n' +
@@ -379,7 +417,7 @@ class MySheet:
                         reserved_count = reserved_count + 1
                 elif int(self.phy_list[i], 16) - int(self.phy_list[lastI], 16) > 1:
                     tmp = int(self.phy_list[i], 16) - \
-                          int(self.phy_list[lastI], 16)
+                        int(self.phy_list[lastI], 16)
                     print('    volatile ' +
                           '{:30}'.format('unsigned int') +
                           '   ' +
@@ -397,8 +435,18 @@ class MySheet:
                         self.reg_name_list[i].upper()) +
                     '   ' +
                     self.reg_name_list[i] +
-                    ';',
+                    ';', end='',
                     file=f)
+                # 判断寄存器是否可写
+                write_enable = self.read_write_list[i]
+                j = i+1
+                while write_enable == 1 and j<length and self.phy_list[j] is None:
+                    write_enable = write_enable * self.read_write_list[j]
+                    j = j + 1
+                if write_enable == 1:
+                    print(' /*read and write*/', file=f)
+                else:
+                    print(' /*read only     */', file=f)
                 lastI = i
             i = i + 1
 

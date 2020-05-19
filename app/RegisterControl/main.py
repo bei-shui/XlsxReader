@@ -12,7 +12,7 @@ def main():
         tag = re.search(r'\.h', file)
         # 分析每一个文件
         if tag:
-            if re.search(r'_reg_ctr\.h',file):
+            if re.search(r'_reg_ctr\.h', file):
                 pass
             else:
                 result = headfile.HeadFile(file)

@@ -260,7 +260,7 @@ class HeadFile:
 
                 # 声明get函数
                 print(
-                    'GK_U ' +
+                    'GK_U' +
                     self.union_list[i].member_size[j] + ' ' +
                     self.struct.fun_struct_name +
                     'DRV_GET_' +
@@ -498,7 +498,7 @@ class Struct:
 
         self.struct_list = []  # 结构体成员
         for member in struct_member:
-            self.struct_list.append(member[:-2])  # 去掉末尾的分号和回车
+            self.struct_list.append(member[:-1])  # 去掉末尾的分号和回车
 
 
 class Union:

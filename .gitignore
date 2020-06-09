@@ -1,0 +1,5 @@
+#test
+*.xlsx
+app/RegisterControl/result/*
+app/RegisterDefine/result/*
+app/RegisterDefine/simple_result
